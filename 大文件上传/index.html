@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="./upload.js"></script>
+    <title>文件上传测试</title>
+</head>
+<body>
+    <div class="upload-container">
+        <input type="file" multiple id="filename" name="file"/>
+        <span id="progress">0% &nbsp;</span>
+        <button onclick="submit()">上传</button>
+        <button id='pause'>暂停</button>
+        <button id='cancel'>取消</button>
+    </div>
+
+    <script>
+        var file;
+        function submit() {
+            file = document.getElementById('filename').files[0]
+            file = new webUploader(file, 'http://localhost:5000');
+            document.getElementById('pause').addEventListener('click', file.pause.bind(file));
+            document.getElementById('cancel').addEventListener('click', file.cancel.bind(file));
+        }
+    </script>
+</body>
+</html>

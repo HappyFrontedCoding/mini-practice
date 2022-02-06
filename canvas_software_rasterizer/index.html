@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="./data.js"></script>
+    <script src="./gl-matrix-min.js"></script>
+    <script src="./utils.js"></script>
+    <script src="./render.js"></script>
+    <title>Document</title>
+</head>
+
+<body>
+    <script>
+        let width = 600
+        let height = 600
+        let tick = 0
+
+        let { drawPixel, draw, clear } = createCanvas(document.querySelector('body'), width, height)
+        let model = createModel(verticles, uvs, normals, faces)
+        let texture = createTexture('./african_head_diffuse.jpg', width, height)
+        texture.then((getTexture)=>{
+            function frame(t) {
+                clear()
+                let light_dir = glMatrix.vec3.fromValues(0, 0, 1)
+
+                let m = glMatrix.mat4.create()    //模型变换矩阵，这里就默认单位矩阵好了
+                glMatrix.mat4.fromYRotation(m, t/10*Math.PI/8)   //加点旋转
+
+                let v = glMatrix.mat4.create()   //创建视图矩阵
+                let eye = glMatrix.vec3.fromValues(0, 0, -4)
+                let center = glMatrix.vec3.fromValues(0, 0, 0)
+                let up = glMatrix.vec3.fromValues(0, 1, 0)
+                glMatrix.mat4.lookAt(v, eye, center, up)
+
+                let p = glMatrix.mat4.create()   //透视投影矩阵
+                let fovy = Math.PI / 4
+                let aspect = width / height
+                let near = 0.01
+                let far = 100
+                glMatrix.mat4.perspective(p, fovy, aspect, near, far)
+
+                let zBuffer = new Float32Array(width * height)
+
+                for (let i = 1; i <= model.length; i++) {
+                    let face = model.getFace(i)
+                    let pts = []
+                    let uvs = glMatrix.mat3.create()
+                    let normals = glMatrix.mat3.create()
+                    
+                    for (let j = 0; j < 3; j++) {
+                        let raw_position = glMatrix.vec3.fromValues(face[j].vertice[0], face[j].vertice[1], face[j].vertice[2])
+
+                        let clip_position = verticeShader(raw_position, m, v, p)
+
+                        //齐次裁剪
+                        if (!clipSpaceCull(clip_position, near, far)) {
+                            break
+                        }
+
+                        let ndc_position = glMatrix.vec4.fromValues(clip_position[0]/clip_position[3], clip_position[1]/clip_position[3], clip_position[2]/clip_position[3])         //透视除法，转化为标准坐标
+
+                        pts.push(ndc_position)    //存入顶点  
+
+                        uvs[j * 3] = face[j].uv[0]     //存入uv
+                        uvs[j * 3 + 1] = face[j].uv[1]
+                        uvs[j * 3 + 2] = face[j].uv[2]
+
+                        normals[j * 3] = face[j].normal[0]     //存入法线
+                        normals[j * 3 + 1] = face[j].normal[1]
+                        normals[j * 3 + 2] = face[j].normal[2]
+
+                    }
+
+                    //进行背面剔除
+                    if (pts.length != 3  || !faceCulling(pts)) continue   //顶点数组不满3，说明该面被裁剪
+
+                    let screen_position = viewPort(pts, width, height)
+
+                    triangle_raster(screen_position, uvs, normals, light_dir, zBuffer, width, getTexture, fragementShader, drawPixel)
+                }
+
+                draw()
+
+             }
+
+            (function run(){
+                if (tick > 10) tick == 0
+                frame(++tick)
+                requestAnimationFrame(run)
+            })()
+        })
+    </script>
+</body>
+
+</html>
